@@ -31,6 +31,8 @@ DD Dive Calculator ("we," "our," or "us") is a diving score calculator published
 
 The degree of difficulty (DD) and judges' scores you type are used only to calculate the dive total on your device. They are kept in memory while the App is open and are not saved, uploaded, or shared.
 
+The App saves one setting on your device: whether the NCAA 9-judge panel is turned on. It stays on your device, is never uploaded, and is removed when you uninstall the App.
+
 ## Data Sharing and Disclosure
 
 Because the App collects no information, there is nothing for us to share, sell, or disclose. We do not share information with:
