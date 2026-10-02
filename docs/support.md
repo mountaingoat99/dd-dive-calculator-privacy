@@ -6,7 +6,7 @@
 
 **DD Dive Calculator** works out a dive's total score from its degree of difficulty (DD) and the judges' awards, the same way it's calculated at a meet.
 
-1. **Enter the DD** for the dive (for example `2.4`)
+1. **Enter the DD** for the dive (for example `2.4`). The DD box is selected when the app opens, with a blinking cursor. The first time you open the app, a "Start here" tip points to it
 2. **Enter each judge's score**: 2, 3, 5, or 7 judges (or 9 with the NCAA 9 switch on)
 3. **Read the total**: it updates as you type
 4. Tap **AC** to clear everything for the next dive
@@ -44,6 +44,8 @@ Totals are shown to two decimal places. Dropped scores are shown struck through,
 - **Next** moves to the following box without finishing the current one
 - **Delete** (⌫) removes the last digit. If the box is empty it moves back to the previous box. Hold it to delete quickly
 - **Tap any box** to jump straight to it and edit it
+- The **blinking cursor** shows which box your next key will go into
+- If you start typing scores before the DD, the **DD box pulses** to remind you it's empty (the total can't be worked out without it)
 
 ### The Total
 
@@ -69,7 +71,7 @@ The app only accepts valid entries: DD from 1.0 to 4.9, and scores from 0 to 10 
 No. Competition DDs fall between 1.0 and 4.9, so the calculator only accepts that range.
 
 **Does the app save my dives?**
-No. The app is a quick calculator: dives aren't saved or uploaded. Tap **AC** to start the next dive. The only thing it remembers is whether the NCAA 9 switch is on.
+No. The app is a quick calculator: dives aren't saved or uploaded. Tap **AC** to start the next dive.
 
 **Why is my two-judge dive score lower than I expected?**
 Under NCAA rules the 1.5 multiplier for two judges is applied to the final meet total, not to each dive, so each dive score matches the official scoresheet.
