@@ -113,3 +113,4 @@ Found a bug, have a question, or want to suggest a feature? Email us and include
 **SingleCog Software**
 Jeremey Rodriguez
 📧 Email: [singlecogsoftware@gmail.com](mailto:singlecogsoftware@gmail.com)
+[SingleCogSoftware.com](https://singlecogsoftware.com)
