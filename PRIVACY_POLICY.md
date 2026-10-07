@@ -73,5 +73,5 @@ If you have questions about this Privacy Policy or the App:
 
 **SingleCog Software**
 Jeremey Rodriguez
-📧 Email: [singlecogsoftware@gmail.com](mailto:singlecogsoftware@gmail.com)
+📧 Email: [contact@singlecogsoftware.com](mailto:contact@singlecogsoftware.com)
 [SingleCogSoftware.com](https://singlecogsoftware.com)
