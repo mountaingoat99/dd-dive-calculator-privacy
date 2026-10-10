@@ -1,0 +1,89 @@
+---
+description: Website SEO rules. Use when creating or changing a public website's pages, routing, build, <head> tags, structured data, sitemap, robots.txt, llms.txt, or page copy.
+globs: **/*.html,**/*.htm,**/*.tsx,**/*.jsx,**/*.vue,**/*.svelte,**/*.astro,**/*.mdx,public/**,static/**
+alwaysApply: false
+---
+
+# Website SEO rules
+
+Apply these whenever you create or change a public website: pages, routing, the build, the `<head>`, structured data, sitemaps, robots.txt, or page copy. The goal is pages that search engines and AI answer engines can read, understand, and trust, because they are genuinely useful to the people searching. It is not keyword tricks.
+
+## 1. Content first, and honest
+
+- Write for the person searching. Each indexable page answers a real question or serves a real task better than a thin page would.
+- Use the words people actually type. If people search "GPX file editor" and the page only says "route editor", add the real phrase naturally in the title, H1, intro, and a heading or two. Cover close variants ("edit a GPX file", "GPX editor for Android") once each. Never stuff keywords.
+- Describe only features that exist. Mark unreleased features "Coming soon" and never put them in titles, descriptions, or structured data as if they are live.
+- No fake superlatives ("#1", "best"), fake reviews, invented ratings, or made-up statistics.
+- Keep facts consistent everywhere the product appears: the site, the store listings, llms.txt, structured data, and any portfolio or company site. Status (beta, live, coming soon), platforms, store links, and prices must match. Keep them in one data module and generate pages from it.
+- Don't create near-duplicate "doorway" pages for keyword variants. One strong page per topic, linked from related pages, beats ten thin ones.
+
+## 2. Crawlable HTML is required
+
+The most common reason a modern site doesn't rank: its content only exists after JavaScript runs.
+
+- Every indexable URL must return HTTP 200 with its full main content in the initial HTML: headings, body copy, FAQ answers, and internal links. Use static generation, SSR, or a prerender step at build time. Google can render JavaScript, but rendering is delayed and less reliable, and many AI crawlers (GPTBot, ClaudeBot, PerplexityBot and others) don't run JavaScript at all.
+- Do not rely on a SPA fallback (for example a GitHub Pages `404.html` that boots the app) for any page you want indexed. That page returns HTTP 404. Write a real `dist/<route>/index.html` for each route.
+- Server HTML and client HTML must match (no `window`, `Date.now()`, random values, or auth state during render), so hydration doesn't swap content.
+- If the static HTML is a crawler-only fallback that the client app replaces, it must contain the same content users see. Showing crawlers different content than users is cloaking.
+- Use real `<a href>` links for navigation, not click handlers on divs. Each route gets its own URL, with no `#` fragments for distinct pages.
+- After a build, verify with the built files, not the dev server: `grep` or `curl` the HTML for the H1, key phrases, and the FAQ text.
+
+## 3. The `<head>` of every indexable page
+
+- `<html lang="…">`, `<meta charset>`, and a responsive `<meta name="viewport">`.
+- `<title>`: unique per page, about 50–60 characters, with the primary phrase first and the brand last ("Free GPX File Editor for Web, iPhone & Android | Switchback Routes"). The home page title must say what the product is, not just its name.
+- `<meta name="description">`: unique, about 140–160 characters, a plain summary that makes someone want to click. Include the main phrase once.
+- `<link rel="canonical">` with an absolute URL. Pick one URL form (trailing slash or not, `www` or not, https) and use it in canonicals, internal links, and the sitemap.
+- Open Graph and Twitter tags: `og:title`, `og:description`, `og:url`, `og:type`, `og:site_name`, `og:image` (an absolute URL, 1200×630, with width and height tags), and `twitter:card` set to `summary_large_image`.
+- Use `<meta name="robots" content="noindex">` on pages that shouldn't rank: app shells behind sign-in, 404 pages, thank-you pages, internal tools, and thin or duplicate pages.
+- Generate head tags from one route metadata list (path, title, description, label, lastmod) that also drives the sitemap and navigation. Never hand-copy them into many files.
+
+## 4. Page structure
+
+- Exactly one `<h1>` per page, matching the page's main topic and close to its title. Use `<h2>` and `<h3>` in order and don't skip levels for styling.
+- Use semantic landmarks: `<header>`, `<nav>`, `<main>`, `<footer>`, `<section>`, and lists for lists.
+- Write descriptive link text ("How to export GPX to Garmin"), never "click here".
+- Link internally on purpose. Every page should be reachable within a few clicks from the home page, related guides should link to each other, and nothing should be orphaned.
+- Images need meaningful `alt` text (`alt=""` for decorative images), explicit `width` and `height`, and modern formats. Lazy-load images below the fold but never the main image at the top of the page.
+- Add a short FAQ to key pages that answers real questions in plain sentences. Answer engines quote these directly.
+
+## 5. Structured data (JSON-LD)
+
+- Use `<script type="application/ld+json">`, and escape `<` in the JSON (`<`) so content can't close the tag.
+- Structured data must describe what is visible on the page. Never mark up content users can't see.
+- Common types:
+  - Site home: `WebSite`, plus `Organization` or `Person` for the publisher, with `sameAs` links to official profiles.
+  - Software or apps: `SoftwareApplication`, `WebApplication`, or `MobileApplication` with `name`, `description`, `applicationCategory`, `operatingSystem` (for example "Web, iOS, Android"), `offers` with real prices (`price: "0"` for free), and `sameAs` links to the App Store and Google Play listings.
+  - Subpages: `BreadcrumbList`.
+  - Visible Q&A: `FAQPage`. Google shows FAQ rich results only for a small set of authoritative sites now, but the markup still helps search and AI systems understand the page. Keep the FAQ text in one module that both the page and the JSON-LD read from, so they can't drift apart.
+  - Articles and guides: `Article`, with `datePublished` and `dateModified`.
+- Never add `aggregateRating` or `review` markup without real, visible reviews.
+- Validate with Google's Rich Results Test and the Schema.org validator after changes.
+
+## 6. Sitemap, robots.txt, and llms.txt
+
+- `sitemap.xml`: generate it at build time from the route list. Include only canonical, indexable 200 URLs. `lastmod` must be the real date the page's content last changed. Don't bump it on every build.
+- `robots.txt`: allow crawling of public pages and their CSS and JS. `Disallow` only private app areas (for example `/app/`, `/judge/`, `/live/`). Include a `Sitemap:` line with the absolute URL. Remember that robots.txt does not remove a page from the index; use `noindex` for that, and don't also block the page, or crawlers will never see the `noindex`.
+- `llms.txt` (optional, at the site root): a short Markdown summary for AI tools, with an H1 name, a one-line `>` summary, then sections listing features, platforms with store links, and key page URLs. Google doesn't use it, so it is never a substitute for crawlable HTML. Keep it accurate, with the same facts as the site.
+
+## 7. Performance and mobile
+
+- Core Web Vitals targets: LCP under 2.5 s, INP under 200 ms, CLS under 0.1.
+- Set explicit dimensions on images and embeds. Preload the main image at the top of the page and critical fonts. Use `font-display: swap`.
+- Code-split large bundles so content pages don't ship the whole app (maps, editors, charts).
+- Every page must work at phone width with no horizontal scroll and readable text.
+- For sites with a companion iOS app, consider the Smart App Banner: `<meta name="apple-itunes-app" content="app-id=…">`.
+
+## 8. Mobile apps and multi-site products
+
+- Link to the App Store and Google Play listings from the product site, its structured data (`sameAs`), and llms.txt.
+- When an app's status changes (beta, live, new platform), update every property in the same change: product site, company or portfolio site, structured data, llms.txt, and the sitemap `lastmod` of the changed pages.
+- The product's own domain should be the most complete source. A portfolio page should summarize the product and link to it, not compete with it.
+
+## 9. Before you finish an SEO change
+
+1. Build the site and check the generated HTML for each changed route: title, description, canonical, a single H1, full body text, and JSON-LD.
+2. Run the project's typecheck and lint.
+3. Confirm the sitemap and robots.txt are correct and `lastmod` changed only where content changed.
+4. Check that no page claims an unreleased feature and that facts match across the project's other sites.
+5. In your summary, tell the user which manual steps remain: deploy; in Google Search Console, resubmit the sitemap and use URL Inspection → Request indexing on key pages; validate structured data; and allow weeks, not days, for ranking and AI Overview changes. Links from other relevant sites remain a major ranking factor that code can't fix.

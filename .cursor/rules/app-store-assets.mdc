@@ -1,0 +1,148 @@
+---
+description: App Store and Google Play image rules. Use when creating, resizing, or checking app store screenshots, promo screenshots, the Apple product page header, Apple search result images, or Google Play graphics such as the feature graphic.
+globs: **/store-assets/**,**/store-listing/**,**/app-store/**,**/appstore/**,**/play-store/**,**/playstore/**,**/fastlane/**,**/*screenshot*,**/*feature-graphic*,**/*promo*
+alwaysApply: false
+---
+
+# App Store and Google Play image rules
+
+Apply these whenever you create, resize, or check the images for an app's store listing: screenshots, promo (marketing) screenshots, the Apple product page header, Apple search result images, and Google Play graphics (feature graphic, icon, phone and tablet screenshots). The goal is images that pass each store's upload rules the first time, show the app honestly, and read well at thumbnail size.
+
+Sizes and rules change. The numbers below were checked against App Store Connect and Play Console in October 2026. Before delivering, re-check them against the current docs (links in section 9), and if a store's uploader shows different numbers, trust the uploader.
+
+## 1. Workflow
+
+1. **Gather facts.** App name, one-line purpose, brand colors and fonts, target stores and devices, locales, and which screenshots to use. If a source folder is attached, list every file with its pixel size and look at each one before choosing. Don't assume a file's content from its name.
+2. **Pick the set.** Choose screenshots that tell one story in the order a new user would value (section 5). Drop duplicates, empty states, and screens showing placeholder or personal data. Tell the user which files you left out.
+3. **Build to exact pixel sizes** (section 2 and 3). Never rely on the store to scale or crop.
+4. **Verify mechanically** (dimensions, mode, file size) and **visually** (contact sheet, then full-size look at anything with text). Section 8.
+5. **Save outputs beside the sources, never over them.** Use a new folder such as `App Store Ready/<device>/Screenshots`. Leave the originals untouched.
+6. **Summarize** what was made, the exact sizes, anything left out, and anything the user must check in the store's own preview tool.
+
+## 2. Apple App Store requirements
+
+Apple sizes below are what App Store Connect displayed in October 2026.
+
+**Screenshots** (up to 10 per device group, minimum 1; PNG or JPEG; RGB with no alpha channel or transparency, because App Store Connect rejects images that have one):
+
+| Device group | Accepted sizes (px) | Notes |
+| --- | --- | --- |
+| iPhone 6.1" / 6.3" (Dynamic Island) | 1206×2622, 2622×1206, 1179×2556, 2556×1179 | Use 1206×2622 portrait unless the app is landscape-only. |
+| iPad 13" | 2064×2752, 2752×2064, 2048×2732, 2732×2048 | Match the app's real orientation. |
+| iPhone Duo | 1398×2034, 2034×1398, 2853×2007, 2007×2853 | Two display states: the smaller sizes are the folded phone, the larger are the unfolded tablet-like screen. Keep each image at its own native size; upload folded and unfolded sets separately if the uploader complains about mixed sizes. |
+
+- The size must match exactly. A screenshot taken on a device that produces an accepted size can be uploaded as is. A composed promo image must be rendered at one of these sizes.
+- **App previews** (video, up to 3): iPhone and Duo 1920×886 or 886×1920; iPad 1600×1200 or 1200×1600.
+- Up to three screenshots show in search results, depending on orientation, so the first three should be the strongest and share an orientation.
+
+**Product page header** and **search result** images (new asset types; both are optional):
+
+- Header sizes: 5244×2950 and 3840×1646. Search result sizes: 5244×2950, 3840×1646, and 1920×1280.
+- **These are universal, not per device.** App Store Connect accepts one header and one search result image per app (per localization), and Apple recommends one universal asset for both. Do not make a set per device. Make one design and render it at each accepted size. Upload 5244×2950 for both unless there is a reason not to; the other sizes are alternates of the same design.
+- If no search result image is supplied, Apple shows the app's previews and screenshots instead.
+
+**Apple's content rules** (from Apple's asset best-practices page; re-read it before delivering):
+
+- Leave out pricing and discounts (so no "Free" or "50% off"), website URLs, copyright symbols, logos of other companies, references to other platforms or marketplaces, and claims you can't verify, such as awards.
+- Never use Apple-designated recognitions (Editor's Choice, App of the Day, Game of the Day, Apple Design Award).
+- Everything must be suitable for a 4+ age rating, even if the app is rated higher.
+- Keep text short, legible, and localized for each supported language. Keep the focal point centered and inside the safe area.
+- Header: one clear idea, designed for a first-time visitor. Search result: state the obvious (what the app is for) and show the real interface.
+- Screenshots: show the app in use, stay on the core experience, lead with the best features, and sequence them as a story. Don't spend a whole screenshot on accolades or a call to action.
+
+## 3. Google Play requirements
+
+- **Feature graphic:** 1024×500, PNG or JPEG, up to 15 MB. Used when the app is featured. Keep key content in the middle; Play may crop the edges.
+- **Phone screenshots:** 2 to 8, PNG or JPEG, up to 8 MB each, 16:9 or 9:16, each side between 320 and 3840 px. Hit the ratio exactly (for example 1260×2240 or 1080×1920); don't rely on Play accepting near misses.
+- **App icon:** 512×512 PNG, up to 1 MB, full square with no pre-rounded corners or drop shadow (Play applies its own mask).
+- **Tablet screenshots (7" and 10") are separate optional sets** with the same file rules. Check the console for the current ratio limits before building them.
+- Play's metadata policy bars misleading text in graphics: no rank or superlative claims ("#1", "best"), no price or promotion text, no "Download now"/"Install" calls to action, no references to other stores.
+- **Remove the device status bar** (clock, battery, notifications) and the navigation or gesture bar from Play screenshots, then pad or crop to the exact ratio. The feature graphic may keep a phone mockup with its status bar.
+
+## 4. Turning raw screenshots into promo images
+
+**Capture clean sources first.** Use the real device or simulator at native resolution, with realistic demo data and no personal information, debug banners, or keyboards left open.
+
+- iOS simulator, consistent status bar: `xcrun simctl status_bar booted override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3`.
+- Android demo mode: `adb shell settings put global sysui_demo_allowed 1`, then `adb shell am broadcast -a com.android.systemui.demo -e command enter`, and send `clock -e hhmm 1200`, `battery -e level 100 -e plugged false`, `network -e wifi show -e level 4`, `notifications -e visible false` the same way. Leave with `-e command exit`.
+
+**Choose and order.** Eight screenshots is a good default (Play's maximum; Apple allows 10). Lead with the signature action of the app, not a login or empty screen. Example order for a map and route app: plan a route, draw, see elevation, edit, directions, organize, saved items, export.
+
+**Compose each promo image** as: brand background, a short headline (and an optional one-line subhead) at the top, and the real screenshot inside a device frame below, bleeding off the bottom edge.
+
+- **Headline:** 2 to 5 words, starting with a benefit or action verb ("Plan any trail, anywhere", "See every climb"). One idea per screenshot. Subhead 7 words or fewer, in a quieter color.
+- **Text size:** headline about 9% of canvas width on portrait phone images, about 4.5% on landscape tablet images. Subhead about 42% of the headline size. Keep lines under about 85% of the width and let them balance across two lines when needed.
+- **Contrast:** white text on the dark brand color; aim for at least 4.5:1 against what is behind it. Check it, don't assume it.
+- **Device frame:** about 85% of canvas width, top edge about 23% down the canvas on portrait phone images (about 20% on landscape tablet images), centered, and cropped by the bottom edge. Keep the same placement on every image in a set so swiping through looks steady.
+- **Frame proportions that looked right:** bezel about 2.4% of device width on phones, 1.75% on iPad, 2.2% on Duo; phone screen corner radius about 14% of screen width; Dynamic Island about 31.8% of screen width by 9.4%, set 2.8% from the top (screenshots don't capture the island, so draw it). Add a soft drop shadow so the device lifts off the background.
+- **Reference sizes used on a working project (canvas → headline px / subhead px / device width px / device top px):** iPhone 1206×2622 → 108 / 46 / 1030 / 600; iPad 2732×2048 → 124 / 54 / 2300 / 430; Duo 1398×2034 → 96 / 42 / 1170 / 400; Duo 2853×2007 → 128 / 56 / 2360 / 395; Duo 2007×2853 → 134 / 58 / 1700 / 580.
+- **Background:** a calm brand gradient with subtle texture. It must not compete with the screenshot. Use the same background across a set.
+- **Honesty:** show the real UI. Don't edit the interface, invent features, or show data that isn't plausible. Generic frames are safer than copying a manufacturer's device art; Apple's product bezels are licensed for marketing use only under Apple's design-resource terms.
+- **Map and third-party content:** map screenshots carry the provider's logo or attribution (for example Google). Keep it visible. Don't crop it out or let a device bleed hide it, and follow the provider's terms. When a map screen would lose its attribution to the bleed, show that screen uncropped or move the frame up.
+
+**Tooling that works well.** Render each image from HTML and CSS with Playwright at the exact pixel size (`viewport = canvas size`, `device_scale_factor = 1`), embedding the screenshots from local files and using an installed font such as Inter. This gives exact sizes and crisp text. Flatten to RGB when saving. Alternatives: Pillow or ImageMagick for crops and padding, Figma or Sketch with Apple's templates, or fastlane `frameit` for framing.
+
+## 5. Header and search result design (universal asset)
+
+One design serves both. Compose it for the worst-case crop, then render it at 5244×2950, 3840×1646, and 1920×1280.
+
+- **App Store Connect crops the header differently per device.** Observed in its Preview tool (October 2026, on a 5244×2950 image): iPhone shows roughly the central 62% of the width by 73% of the height; iPad roughly the central 86% by 46%; Duo roughly the central 72% by 55%, with the camera cutout and a tab bar overlapping the right edge. Back and share buttons sit near the top corners on iPhone, and a tab bar sits across the top center on iPad.
+- **So keep every important thing inside one centered safe box**, shifted down about 3% of the image height to clear the top overlays: 2950×1190 on 5244×2950, 2400×980 on 3840×1646, 1560×636 on 1920×1280. Decorative art can run to the edges (the wide crops will show it), but nothing the viewer must read goes outside the box.
+- **Layout inside the box:** headline and a short subhead on the left (vertically centered), devices on the right. A tablet partly behind a phone shows all device families at once. Keep text at least about 190 px high on the 5244×2950 version so it still reads in the small iPhone crop.
+- **Message:** say what the app is. A good pattern is a two-line headline ("Draw & edit GPX routes") plus a short audience line ("Hiking · Biking · Trail running"). The app name and icon already sit directly under the header on the product page, so don't repeat them as the main message.
+- **Check the crops yourself:** crop the render to the three regions above (center crops, with a dark block where the overlays are), look at them, and make sure the text and devices survive each. Then confirm in App Store Connect's Preview.
+
+## 6. Locales and variants
+
+- Make a separate set per localization. Leave room: translated headlines often run 30 to 40% longer, and some scripts need larger sizes or different line breaking.
+- Keep copy consistent with the store listing (name, subtitle, description) and with the website. Don't promise anything the listing doesn't.
+- For product page optimization, vary one thing at a time (the header, or the first three screenshots).
+
+## 7. File naming and layout
+
+Use predictable names that carry the size and order:
+
+```
+App Store Ready/
+  iPhone/Screenshots/iPhone_Screenshot_01_1206x2622.png
+  iPad/Screenshots/iPad_Screenshot_01_2732x2048.png
+  Duo/Screenshots/Duo_Screenshot_01_1398x2034.png
+  Universal Header and Search Results/<App>_Universal_Header-Search_5244x2950.png
+Play Store Ready/
+  <App>_feature_graphic_1024x500.png
+  <App>_phone_01.png ... <App>_phone_08.png
+```
+
+Number files in upload order. Keep the originals where they were. Source filenames from macOS can contain a narrow no-break space before "AM" or "PM", so quote paths and copy them with a shell glob rather than retyping them.
+
+## 8. Verify before finishing
+
+Run a check like this and fix anything that fails:
+
+```python
+from PIL import Image
+import os, sys
+OK_APPLE = {(1206,2622),(2622,1206),(1179,2556),(2556,1179),(2064,2752),(2752,2064),(2048,2732),(2732,2048),
+            (1398,2034),(2034,1398),(2853,2007),(2007,2853),(5244,2950),(3840,1646),(1920,1280)}
+for path in sys.argv[1:]:
+    im = Image.open(path)
+    mb = os.path.getsize(path) / 1e6
+    problems = []
+    if im.mode not in ("RGB",): problems.append(f"mode {im.mode} (flatten to RGB, no alpha)")
+    if im.format not in ("PNG","JPEG"): problems.append(f"format {im.format}")
+    print(path, im.size, im.mode, f"{mb:.2f} MB", "; ".join(problems) or "ok")
+```
+
+- Apple files must be exactly in `OK_APPLE`. For Play, check the 9:16 or 16:9 ratio exactly (`h*9 == w*16`), each side 320 to 3840, file under 8 MB, and the feature graphic exactly 1024×500.
+- Build a contact sheet of each set and look at it for consistent placement and order. Then open each image at full size and read every word of text for typos, clipping, and contrast.
+- Confirm nothing banned slipped in: prices or "Free", URLs, rank claims, other platforms, copyright marks, awards.
+- Confirm map attribution is still visible on any map screenshot (section 4).
+- Tell the user what to check in the store's own preview (the header crop, the first three screenshots in search) and which sizes to upload where.
+
+## 9. Sources to re-check
+
+- Apple asset best practices: https://developer.apple.com/app-store/asset-best-practices/
+- Apple screenshot specifications: https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications
+- Apple product page guidelines: https://developer.apple.com/app-store/product-page/
+- Google Play preview assets: https://support.google.com/googleplay/android-developer/answer/9866151
+- Google Play metadata policy: https://support.google.com/googleplay/android-developer/answer/9898842

@@ -1,0 +1,237 @@
+---
+description: iPhone Duo (foldable iPhone) rules. Use when building, laying out, testing, or releasing an iOS app (SwiftUI, UIKit, React Native or Expo) for iPhone Duo; when handling size classes, safe areas, vertical toolbars, the side status-bar strip, the fold or cameras (reserved regions), Split View, Xcode 27.1 / iOS 27.1 SDK builds, or App Store archives.
+globs: **/*.swift,**/*.m,**/*.mm,**/*.h,**/*.tsx,**/*.ts,**/*.jsx,**/*.js,ios/**,**/Info.plist,**/*.xcconfig,**/*.podspec,**/Podfile,**/app.json,**/app.config.*,**/eas.json
+alwaysApply: false
+---
+
+# iPhone Duo rules
+
+Apply these whenever you build, lay out, test, or release an iOS app that can run on iPhone Duo, Apple's foldable iPhone: any iPhone app, in SwiftUI, UIKit, or React Native / Expo. The goal is an app that uses the whole display in every pose, keeps its controls where the system puts its own, stays off the fold and the cameras, and never loses state when the device opens or closes.
+
+Apple's guidance and the SDK are new. The facts below were checked against Xcode 27.1 (iOS 27.1 SDK) and Apple's iPhone Duo pages in October 2026. Re-check the sources in section 14 before relying on a number, and trust what the running app reports (section 11) over any figure here.
+
+## 1. What the device is
+
+iPhone Duo has two displays and a center hinge.
+
+| Pose | Display | Size classes (W / H) | System chrome |
+| --- | --- | --- | --- |
+| Closed, portrait | Outer: wider and shorter than other iPhones | compact / regular | Status bar, Dynamic Island and camera run down one **side** in a vertical strip. Safe area is asymmetric. |
+| Closed, landscape | Outer | compact / compact | Same side strip. The status bar is hidden, but the camera is not. |
+| Open, portrait | Inner, near square | regular / regular | Standard horizontal bars across the top and bottom. |
+| Open, landscape | Inner | regular / regular | Bars move to the side strip, as on the closed device. |
+| Partially folded (book or laptop) | Inner | regular / regular | The fold becomes a **division** reserved region; the inner camera is an **occlusion** while active. |
+| Split View on the inner display | Inner, shared | usually compact / regular | Each app puts its controls on its own **outer** edge: the left app on the left. |
+
+- The outer front camera is in a corner and always visible. Controls on the side stay vertically aligned with it, so when the closed device turns 180° the strip and its controls swap sides.
+- The inner front camera sits behind the display and only shows (and occludes) while it's in use.
+- Treat any combination of size classes as possible. iPhone Mirroring on macOS 27 also resizes iPhone apps freely.
+
+Sizes measured on the Xcode 27.1 simulator, for sanity checks only. Never hardcode them:
+
+| State | Window (pt) | Notes |
+| --- | --- | --- |
+| Closed portrait | 466 × 678 | Right safe inset 84. The system bar region is a 44 pt column at x 396, from y 170 (below the clock) to y 644. |
+| Closed landscape | 678 × 466 | The bar region starts at y ≈ 2, because the status bar is hidden. |
+| Open, landscape | 951 × 669 | regular / regular. |
+| Split View, one half | ≈ 469 × 669 | Left and right safe insets are **0**. The bar region on the outer edge starts near the top. |
+
+## 2. Build with the iOS 27.1 SDK. There is no Info.plist opt-in.
+
+How much of the display an app gets depends only on the SDK it was built with:
+
+| Built with | On iPhone Duo |
+| --- | --- |
+| iOS 26 SDK or earlier | Runs, but doesn't adapt. Open, it's centered with empty space around it. Closed, it sits to the left of the status bar and camera. |
+| iOS 27 SDK (Xcode 27.0) | Resizes to fill most of the inner display but still avoids the status-bar strip. Closed, the window is boxed (≈ 80 pt narrower than the screen). |
+| iOS 27.1 SDK or later (Xcode 27.1+) | Full display. System toolbars and tab bars lay out vertically below the status bar. The reserved-region, bar-edge and hinge APIs exist. |
+
+- **There is no plist key to opt in.** The full-screen experience comes only from the SDK. These keys matter; keep them as shown:
+
+  | Key | Value | Why |
+  | --- | --- | --- |
+  | `UISupportedInterfaceOrientations` | all four | The outer display honors this list like any iPhone. The inner display ignores it. |
+  | `UIRequiresFullScreen` | absent or `false` | Still honored, but the app resizes on open and close anyway, and `true` opts it out of Split View. |
+  | `UILaunchStoryboardName` | a storyboard | A launch storyboard (not launch images) lets the window take any size. |
+
+- **Upside-down portrait doesn't happen on the outer display.** It "behaves like any other iPhone", and iPhones without a Home button never rotate into upside-down portrait. Turned over, every app, system apps included, keeps its last landscape orientation. Don't try to fix this in code: overriding `supportedInterfaceOrientations` on the root view controller changes nothing.
+- **Before shipping a 27.1-SDK build, make sure content adapts to bars becoming vertical** (section 5).
+- **Verify the SDK of every build** you test or ship. Don't infer it from which Xcode you think ran:
+
+  ```bash
+  plutil -extract DTSDKName raw "<App>.app/Info.plist"   # iphonesimulator27.1 / iphoneos27.1
+  ```
+
+## 3. Fix these patterns first
+
+Apple's "get my app ready for iPhone Duo" list. In Xcode 27.1, the coding assistant's **App Resizability** skill scans for them. Export it for other agents with `xcrun agent skills export`. It finds most issues, not all, so also search yourself:
+
+- **Stop sizing from the main screen.** On a two-display device `UIScreen.main` is ambiguous (and will be deprecated), and the app's size rarely matches the screen.
+  - Replace `UIScreen.main.bounds` with `view.bounds` or `window.bounds`. In SwiftUI use `GeometryReader` or `onGeometryChange`.
+  - Re-read the size whenever it changes, not once at launch or in `viewIsAppearing`: a fold resizes the app mid-session. Do size-dependent layout in `layoutSubviews` / `viewDidLayoutSubviews`, and size-change work in `viewWillTransition(to:with:)`.
+  - Get scale from `traitCollection.displayScale` (UIKit) or `@Environment(\.displayScale)` (SwiftUI).
+  - Create windows with `UIWindow(windowScene:)`, never `UIWindow(frame: UIScreen.main.bounds)`.
+  - Don't store a `UIScreen`. When needed, read `view.window?.windowScene?.screen`.
+  - React Native: use `useWindowDimensions()` or layout measurements, never `Dimensions.get('screen')`. Avoid a one-time `Dimensions.get('window')` read at module scope.
+- **Don't use orientation for layout.** Remove layout logic that reads `UIDevice.current.orientation`, `statusBarOrientation`, `interfaceOrientation` or `windowScene.effectiveGeometry.interfaceOrientation`. To learn whether the app is wider than tall, compare the width and height of the space you have. In React Native, don't drive layout from orientation libraries; compare window width and height.
+- **Don't identify the device by idiom or size class.**
+  - Search for `userInterfaceIdiom == .phone` / `.pad` (and `Platform.isPad` in React Native). Base layout on size classes or available space.
+  - "Regular width" doesn't mean iPad. Code that shows an iPad-only layout for `.regular` will now run on iPhone, which is the point: on the inner display the app should look like a natural extension of its iPad layout.
+  - Remove checks for specific sizes (`bounds.height == 844`, tables of known iPhone sizes).
+- **Check full-bleed media.** `.scaleAspectFill` / `.aspectRatio(contentMode: .fill)` heroes and video can lose content on wider displays. Choose fill or fit from the current size classes or aspect ratio, or set a focal point.
+
+## 4. Layout: size classes decide, and the layout grows rather than swaps
+
+- **Pick layouts from size classes**, not device or orientation. Compact width (outer display) gets the phone layout. Regular width *and* regular height (the inner display in any pose, iPad) gets the wide layout: sidebar, split view, docked panels. Where size classes are unavailable (React Native without a native bridge, Android, web), fall back to the window's short edge.
+- **Don't reinvent the app when it resizes.** Let the existing layout expand into the space, and show one more level of hierarchy on the inner display where it helps (Mail: list *or* message closed, both side by side open).
+- **Keep functionality and state identical across displays and poses.** The same actions are reachable in every pose, even if some move into an overflow menu. Opening or closing must not reset scroll position, selection, an in-progress edit, an open panel, or a focused text field.
+- **Size from the container.** Use Auto Layout, stacks, flex, percentages, and layout margins. No fixed widths tied to a display.
+- **Prefer system containers**: `NavigationSplitView` / `UISplitViewController`, `TabView` / `UITabBarController`, `NavigationStack`, sheets, popovers. They handle resizing, the vertical bars, the fold and the camera on their own. On the inner display a tab bar can opt into a sidebar placement.
+- **Use full display width only where bars aren't needed.** Immersive, non-scrolling interfaces (a map, a canvas, Calculator) can span the display as long as nothing collides with the Dynamic Island or status bar. Backgrounds and heroes may extend under a vertical bar with `backgroundExtensionEffect()` (SwiftUI) or `UIBackgroundExtensionView` (UIKit), while scrolling content stays inset.
+
+## 5. Safe areas and the vertical bar
+
+### Safe areas
+
+- **Honor every edge of the safe area on its own.** The Duo puts the strip on one side, so left and right insets differ. Never mirror one side's inset onto the other, and never assume insets are symmetric.
+- **Use safe areas so controls don't cover content**, including controls on the opposite edge when two apps share the inner display.
+- **Don't push a top header into the status-bar row on the inner display in portrait.** There the system keeps standard horizontal bars below the status bar, across the full width. The empty space beside the clock is still the status bar area, so let content (a map, an image) run under it instead.
+
+### System bars
+
+Navigation bars, toolbars and tab bars move to the side on the outer display, and on the inner display in landscape or a trailing placement. To get this for free:
+
+- **Use the containers' bars**, not hand-built ones: SwiftUI `toolbar(content:)` on a `NavigationStack` / `NavigationSplitView`; UIKit toolbar items on a view controller inside a navigation controller. Custom `UIToolbar` / `UINavigationBar` / `UITabBar` views aren't moved.
+- **Order items for the vertical axis.** Top: primary navigation (Back, Close), then prominent actions (Done). Use `topBarPinnedTrailing` (SwiftUI) or `pinnedTrailingGroup` (UIKit) for Done, and `cancellationAction` (SwiftUI) or `leadingItemGroups` (UIKit) for a custom Back or Close. Keep the remaining items in their original groups (`ToolbarItemGroup` / `UIBarButtonItemGroup`) rather than spacing them by hand.
+- **Give every item both a title and a symbol.** Vertical bars show only symbols. An item with a title but no icon, or with a custom view, isn't shown vertically. Keep text-only buttons to a minimum.
+- **Control overflow.** Items overflow bottom to top by default. Set `visibilityPriority` (SwiftUI modifier / UIKit property) to keep frequently used items and items with badges visible longest. Put rarely used ones straight into `ToolbarOverflowMenu` / `additionalOverflowItems`. Use the system overflow menu instead of your own, and reserve the ellipsis symbol for it. `axisBehavior` controls whether an item appears in vertical layouts at all.
+- **Choose what survives compression.** Navigation-focused screens keep the tab bar (the default). Task-focused screens keep the toolbar and minimize the tab bar: `ToolbarVerticalCompressionBehavior` (SwiftUI) or `verticalBarCompressionBehavior` (UIKit).
+- **Sheets:** on the outer display a sheet's bars go vertical by default. Disable that with `toolbarVerticalBehavior(_:)` / `preferredVerticalBarBehavior`. On the inner display, centered or leading sheets get horizontal bars and trailing sheets vertical. Set `presentationPlacement(_:)` / `preferredPlacement` to choose.
+- **Inspectors** keep horizontal bars. In a split view the sidebar and content columns are horizontal and the detail column vertical.
+- **Keep controls near the content they affect.** Controls for a leading pane stay above that pane, not in the side strip.
+- **Don't override the default bar placement.** It is the core pattern of the device.
+
+### Custom chrome (floating buttons, custom toolbars)
+
+Apps with custom chrome (map apps, canvases, games, React Native apps) have to place it themselves. The HIG counts the side strip as a home for app controls as well as system ones.
+
+- **Read the bar edge:** `traitCollection.verticalBarEdge` (UIKit) or the `toolbarVerticalEdge` environment value (SwiftUI): leading, trailing, or unspecified when bars are horizontal. Re-read on `UITraitCollection.systemTraitsAffectingVerticalBarEdge` changes.
+- **Ask the system for the strip's usable area** instead of guessing where the clock and camera end: `view.edgeInsets(for: .bar(onEdge: .trailing, extent: 44))` or `layoutGuide(for:)`, with the directional edge from `verticalBarEdge`. `bounds.inset(by:)` those insets gives the column where a system vertical toolbar would go: inside the strip, below the status items, clear of the camera. Put a column of floating buttons there, not inside the safe area next to the strip.
+- **Don't use `statusBarManager.statusBarFrame`.** On the Duo it returns a 2 pt strip across the top and says nothing about the side bar.
+- **Edge cases verified on the simulator:**
+  - *Closed device turned 180°:* the strip moves to the other side, and floating controls must follow it, with their flyouts and menus opening the other way (mirror slide animations and anchoring). Skip that side only if something else already owns it, such as the wide layout's left sidebar or rail.
+  - *Closed landscape:* the status bar is hidden, so the region starts at the very top edge. Keep a margin (≈ 12 pt) so the first control clears the display's rounded corner.
+  - *Split View:* the side safe insets are 0, so a full-width custom header overlaps the bar region. When a header crosses the button column horizontally, start the column below the header.
+  - Check that the column fits: closed landscape leaves about 380 pt of height.
+
+## 6. Reserved regions: the fold and the cameras
+
+- **Query them:** `reservedRegions(kind:options:)` on a `UIView`, or `GeometryProxy.reservedRegions(kind:options:layoutDirectionBehavior:)` in SwiftUI. Kinds: `.division` (the fold divides the view) and `.occlusion` (a camera covers content).
+- **Check `isActive`.** The fold region is active only while partially open, so pass `.includeInactive` if you want to know where it *would* be. A region's `frame` already includes its interactive margins.
+- **Re-query when the hinge moves, not only on resize.** A partial fold doesn't always change the view's size. Add a `UIHingeInteraction` and re-read regions in its update handler. It reports status (`closed`, `partiallyOpen`, `fullyOpen`) and angle.
+- **Derive the fold axis from the region's shape.** Taller than wide means a book fold with leading and trailing halves. Wider than tall means a laptop fold with top and bottom halves.
+- **Don't assume a fold region whenever the hinge is partially open.** Near flat (≈ 128°) the simulator reported `partiallyOpen` with no division region. Act on regions, not hinge status.
+- **Don't depend on an occlusion region for the outer camera.** The simulator reported none on the outer display, while the bar region and safe area already accounted for it. Use the bar region (section 5) for controls near the outer camera, and occlusions for the inner camera.
+- **Keep important elements and touch targets off the crease** if the system doesn't move them. Make small moves only: shift bottom chrome into one half, stop a docked panel above a laptop fold. Don't rearrange the layout per pose.
+- **Arrangement views** (`ArrangementView` / `UIArrangementViewController`) do this for a primary and a secondary view. *Split* arrangements place them side by side or stacked by aspect ratio, around the fold. *Overlay* arrangements stack the primary over the secondary, and when folded put the **primary in the trailing or bottom half** and the secondary in the leading or top half. Follow the same overlay rule for custom modal cards over content: card in the trailing or bottom half, content in the other. Keep navigation containers outside arrangement views, and don't put them in lists, scroll views, or split views.
+- **Grids:** prefer an even number of columns so content divides cleanly at the fold.
+- **Corners:** match the screen's corner shape with `ConcentricRectangle` (SwiftUI) or `UICornerConfiguration` (UIKit), updated for the Duo's displays.
+
+## 7. Platform recipes
+
+### SwiftUI and UIKit
+
+Most of the work is adopting the system pieces above. Then audit custom views for safe areas on every edge, the bar region, reserved regions, and section 3's patterns. Gate 27.1 APIs with `if #available(iOS 27.1, *)`.
+
+### React Native / Expo
+
+React Native exposes the window size and safe-area insets, but not size classes, the bar edge, the bar region, reserved regions, or the hinge. Bridge them with a small local native module:
+
+- **Report layout from an invisible observer view at the app root**, not a module function. A view knows its own window, traits and safe area. It's non-interactive and clear, fills the root, and fires an event with:
+  - horizontal and vertical size class
+  - `verticalBarEdge` and the bar region (section 5)
+  - all reserved regions with kind, frame and `isActive`
+  - hinge status and angle
+  - its bounds
+  - a flag saying whether the 27.1 APIs were compiled in
+
+  Send it from `layoutSubviews`, `safeAreaInsetsDidChange`, `didMoveToWindow`, trait-change registrations (size classes and `systemTraitsAffectingVerticalBarEdge`) and the hinge interaction. Skip duplicate payloads.
+- **Expose it to JS through a store** (`useSyncExternalStore`) and small hooks: `useWideLayout()` (size classes, with a short-edge fallback), the active fold, an overlay padding that moves modal cards to the trailing or bottom half, and a bar slot for floating buttons (side, top, inset).
+- **Let the module build on older SDKs too.** Both Xcode 27.0 and 27.1 ship Swift 6.4, so `#if compiler(...)` can't separate them. In the podspec, define a Swift flag (for example `LEGACY_SDK`) when the SDK version is below 27.1, and wrap the 27.1 calls in `#if !LEGACY_SDK`. The module then reports size classes only on older SDKs.
+- **Expose layout state to the agent's inspection tool** in dev builds (for example, register `duoLayout` and `safeAreaInsets` with whatever app-state inspector the project uses), so layout can be checked without screenshots.
+- **The `ios/` folder is usually generated** (continuous native generation). Put native changes in modules and config plugins, never in hand edits to `AppDelegate` or `Podfile`.
+- **A new native source file needs `pod install`** (or prebuild) before it compiles. `expo run:ios` only re-runs pods when dependencies change, so the build fails with `cannot find '<Type>' in scope` until you do.
+- **Expo SDK 57 + Xcode 27.1 workarounds** (drop them once Expo ships fixes):
+  - `usePrecompiledModules: false` in `expo-build-properties`. Expo's precompiled frameworks were built with Xcode 27.0's Swift and the 27.1 compiler refuses them, so every module builds from source.
+  - A `patch-package` patch for `expo-modules-jsi` (expo/expo#50569). Its Swift interface keeps `__ObjC::` selectors that Swift 6.4 rejects.
+  - `enableSceneSupport: true`, because Xcode 27 / iOS 27 require the UIKit scene lifecycle.
+  - A Podfile `post_install` step, added by a config plugin, that raises every pod target's `IPHONEOS_DEPLOYMENT_TARGET` to at least 15.0. Xcode 27 accepts only 15.0 to 27.1.x.
+
+## 8. Building with the right Xcode
+
+While 27.1 is a beta or RC it usually lives outside `/Applications`, and `xcode-select` still points at 27.0. Every tool that doesn't get told otherwise (`xcodebuild`, `expo run:ios`, double-clicking a workspace) silently builds with 27.0 and ships the boxed layout.
+
+- **Point builds at 27.1 explicitly:** `DEVELOPER_DIR="/path/to/Xcode-27.1.app" <build command>`, or for the whole machine `sudo xcode-select -s /path/to/Xcode-27.1.app`.
+- **Guard the project's build scripts.** Before building, check the SDK with `xcrun --sdk iphoneos --show-sdk-version` (using the candidate `DEVELOPER_DIR`). If it's below 27.1, look for a qualifying `Xcode*.app` in `/Applications`, `~/Applications` and `~/Downloads`, export its path as `DEVELOPER_DIR` for the child build, and print which one was used. If none qualifies, stop with a list of what was checked. Respect an explicit `DEVELOPER_DIR` rather than swapping it. Run the check *before* side effects such as bumping build numbers.
+- **Several betas can be installed side by side.** Know which one the guard picks (the newest build), or pin one with `DEVELOPER_DIR`.
+- **Simulator UDIDs change** when a simulator is recreated, so address it by name (`--device "iPhone Duo"`) and re-check what's installed on the one that's booted.
+- **When a screen looks wrong, check the build first.** A 27.0 build on the Duo simulator looks exactly like "the iPhone Duo code isn't working".
+
+## 9. Testing
+
+Use the iPhone Duo simulator in Xcode 27.1's **Device Hub** (the best test of the native experience), plus the resizable iOS simulator and iPhone Mirroring on macOS 27, resized to extremes in both directions.
+
+- **Poses can't be driven from the command line.** `simctl` has no pose or rotate command, and UI-automation tools can't open, fold or rotate the Duo. Ask the person to change the pose in Device Hub, then verify.
+- **`simctl io … screenshot` returns black images on the Duo simulator.** Verify through the app instead: element frames from the accessibility or view tree, and the layout state the native module reports (size classes, `verticalBarEdge`, bar region, regions, hinge, safe-area insets). Ask the person for a screenshot when the visual result matters.
+- **Walk every screen in each state and rotate in each:**
+  1. Closed portrait. Controls sit in or beside the strip, and nothing is under the clock or camera.
+  2. Closed landscape, both directions. The strip and its controls swap sides with the camera. The top control clears the rounded corner.
+  3. Closed, turned upside down. Expect the app to stay in landscape, like every app.
+  4. Open portrait (horizontal bars) and open landscape (side bars), in the wide layout.
+  5. Book fold and laptop fold. Nothing interactive sits on the crease, and modal cards are in the trailing or bottom half.
+  6. Split View with another app, with this app on the left and then the right. Controls are on the outer edge and don't overlap the header.
+  7. Open and close mid-task: while editing, with a panel or sheet open, and with the keyboard up. State survives.
+- **Physical device:** connect and trust the computer, turn on Developer Mode (Settings → Privacy & Security; it appears after the phone has been connected to Xcode once), sign in under Xcode → Settings → Accounts, then build with the guarded script. A phone on a newer iOS beta needs the matching Xcode beta. A dev build needs the phone on the same network as the bundler; a Release build doesn't.
+
+## 10. Releasing
+
+- **Archive from Xcode 27.1, opened explicitly:** `open -a "/path/to/Xcode-27.1.app" <App>.xcworkspace`. Double-clicking the workspace opens the default Xcode. Choose **Any iOS Device (arm64)**, then Product → Archive.
+- **Check the archive's SDK before uploading:** `plutil -extract DTSDKName raw "<archive>.xcarchive/Products/Applications/<App>.app/Info.plist"` should print `iphoneos27.1`.
+- **App Store Connect accepts only released Xcode or its Release Candidate**, not betas. Before the RC, either wait or ship from 27.0, which is correct everywhere but boxed on the Duo, and say which you did.
+- **Deployment-target warnings for pod resource-bundle targets** (`…_Privacy`, `…_resources`, "set to 12.0, but the range … is 15.0 to 27.1.x") usually mean Xcode is showing a stale Pods project. Quit Xcode, run `pod install`, reopen in 27.1, then Product → Clean Build Folder. If the warnings persist, make sure the Podfile `post_install` step from section 7 exists. These are warnings, so look for the real red errors if an archive fails.
+- **Store presence:** add iPhone Duo screenshots and previews for both the folded and unfolded states (pair with the `app-store-assets` rule for sizes), check them in App Store Connect's preview tool, and send a featuring nomination noting the app is optimized for iPhone Duo in all poses.
+
+## 11. Measure, don't guess
+
+Before changing layout for the Duo, get real numbers from the running app in the exact pose: window size, safe-area insets, size classes, `verticalBarEdge`, the bar region, reserved regions, and the frames of the elements involved. Most Duo layout bugs come from an assumption: that insets are symmetric, that the status bar has a useful frame, that partially open means folded, that the strip is always on the right, or that the build used the right SDK.
+
+## 12. Things not to do
+
+- Don't hardcode Duo sizes, inset values, or the strip's position.
+- Don't lock orientation to dodge layout work. The inner display ignores locks.
+- Don't put custom controls under the clock, Dynamic Island, camera, or crease.
+- Don't rebuild the UI per pose, or hide features on the outer display.
+- Don't hand-build bars that system containers would provide.
+- Don't edit generated native projects; use modules and config plugins.
+- Don't claim Duo support was verified from a build whose `DTSDKName` you didn't check.
+
+## 13. Before you finish
+
+- [ ] The app was built with the iOS 27.1 SDK, and `DTSDKName` was checked on the build you tested.
+- [ ] No `UIScreen.main`, screen-size, orientation, or idiom checks drive layout. Size comes from views, windows, or `useWindowDimensions`.
+- [ ] The layout comes from size classes. The wide layout appears on the inner display, and state survives open and close.
+- [ ] Every safe-area edge is handled separately.
+- [ ] System bars come from containers. Items have titles and symbols, are ordered and grouped, and have visibility priorities.
+- [ ] Custom chrome uses `verticalBarEdge` and the bar region, follows the strip to both sides, clears the corner in landscape, and clears the header in Split View.
+- [ ] The fold and inner camera are read from reserved regions, re-queried on hinge changes, and nothing interactive sits on the crease.
+- [ ] Every pose in section 9 was checked, with numbers or screenshots, and you stated which ones you couldn't check.
+- [ ] Info.plist has all four orientations, no `UIRequiresFullScreen`, and a launch storyboard.
+- [ ] The release archive came from Xcode 27.1 (RC or final) and its SDK was checked before upload.
+
+## 14. Sources
+
+- [Designing for iPhone Duo (HIG)](https://developer.apple.com/design/human-interface-guidelines/designing-for-iphone-duo)
+- [Preparing your app for iPhone Duo](https://developer.apple.com/documentation/technologyoverviews/preparing-your-app-for-iphone-duo)
+- [Three steps to make your app shine on iPhone Duo](https://developer.apple.com/iphone-duo/prepare/)
+- [Tech talk: Prepare your app for iPhone Duo](https://developer.apple.com/videos/play/tech-talks/111461/)
+- UIKit headers in the iOS 27.1 SDK: `UIViewReservedRegion.h`, `UIViewLayoutRegion.h`, `UIVerticalBarEdge.h`, `UIViewController.h` (`preferredVerticalBarBehavior`, `setNeedsUpdateOfVerticalBarConfiguration`).
